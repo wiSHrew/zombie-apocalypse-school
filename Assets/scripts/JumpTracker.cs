@@ -12,6 +12,8 @@ public class JumpTracker : MonoBehaviour
     [SerializeField] private float markerSize = 0.25f;
 
     private CharacterController characterController;
+    private Vector3 currentPosition;
+    private float jumpHeight;
     private bool isTracking;
     private GameObject startMarker;
     private GameObject endMarker;
@@ -20,17 +22,18 @@ public class JumpTracker : MonoBehaviour
     public Vector3 JumpStartPosition => jumpStartPosition;
     public Vector3 JumpEndPosition => jumpEndPosition;
     public float JumpDistance => jumpDistance;
+    public float JumpHeight => jumpHeight;
 
     private void Awake()
     {
         characterController = GetComponent<CharacterController>();
         if (distanceText == null)
         {
-            Debug.LogError("Assign a TextMeshPro text component to display the jump distance.", this);
+            Debug.LogError("Assign a TextMeshPro text component to display the jump distance and player position.", this);
             return;
         }
 
-        UpdateDistanceText();
+        TrackPlayerPosition();
     }
 
     public void BeginJump()
@@ -45,9 +48,10 @@ public class JumpTracker : MonoBehaviour
         RecordJumpPosition(true);
         jumpEndPosition = Vector3.zero;
         jumpDistance = 0f;
+        jumpHeight = 0f;
         isTracking = true;
         startMarker = CreateMarker(jumpPoint);
-        UpdateDistanceText();
+        TrackPlayerPosition();
     }
 
     public void RecordJumpPosition(bool beforeJump)
@@ -63,23 +67,28 @@ public class JumpTracker : MonoBehaviour
 
     private void LateUpdate()
     {
-        if (!isTracking)
+        if (isTracking)
         {
-            return;
+            Vector3 position = transform.position;
+            jumpDistance = Vector2.Distance(
+                new Vector2(jumpPoint.x, jumpPoint.z),
+                new Vector2(position.x, position.z));
+            jumpHeight = Mathf.Max(0f, position.y - jumpStartPosition.y);
+
+            if (characterController.isGrounded)
+            {
+                isTracking = false;
+                RecordJumpPosition(false);
+                endMarker = CreateMarker(position);
+            }
         }
 
-        Vector3 position = transform.position;
-        jumpDistance = Vector2.Distance(
-            new Vector2(jumpPoint.x, jumpPoint.z),
-            new Vector2(position.x, position.z));
+        TrackPlayerPosition();
+    }
 
-        if (characterController.isGrounded)
-        {
-            isTracking = false;
-            RecordJumpPosition(false);
-            endMarker = CreateMarker(position);
-        }
-
+    private void TrackPlayerPosition()
+    {
+        currentPosition = transform.position;
         UpdateDistanceText();
     }
 
@@ -118,7 +127,8 @@ public class JumpTracker : MonoBehaviour
     {
         if (distanceText != null)
         {
-            distanceText.text = $"Distance: {jumpDistance:F2} m\nStart: {jumpStartPosition}\nEnd: {jumpEndPosition}";
+            distanceText.text =
+                $"Current: {currentPosition}\nDistance: {jumpDistance:F2} m\nHeight: {jumpHeight:F2} m\nStart: {jumpStartPosition}\nEnd: {jumpEndPosition}";
         }
     }
 }

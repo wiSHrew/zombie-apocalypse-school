@@ -6,18 +6,21 @@ using TMPro;
 public class backstab : MonoBehaviour, IInteractable
 {
     private const float BackstabCanvasDuration = 2f;
+    private const float BackstabFailureMessageDuration = 2f;
     private const float FallDuration = 0.4f;
 
     [SerializeField, Min(0f)] private float backstabRange = 2.5f;
     [SerializeField, Range(-1f, 1f)] private float backstabAngleThreshold = -1f;
     [SerializeField] private GameObject backstabCanvas;
     [SerializeField] private TMP_Text backstabMessage;
+    [SerializeField] private TMP_Text backstabFailureMessage;
 
     private Transform playerTransform;
     private Image firstBackstabIndicator;
     private Image secondBackstabIndicator;
     private Color firstIndicatorDefaultColor;
     private Color secondIndicatorDefaultColor;
+    private Coroutine backstabFailureMessageCoroutine;
     private bool defeated;
 
     private void Start()
@@ -29,8 +32,6 @@ public class backstab : MonoBehaviour, IInteractable
         else
         {
             backstabCanvas.SetActive(true);
-            firstBackstabIndicator = FindIndicator("crosshair");
-            secondBackstabIndicator = FindIndicator("crosshair (1)");
 
             if (firstBackstabIndicator != null)
             {
@@ -48,6 +49,11 @@ public class backstab : MonoBehaviour, IInteractable
             backstabMessage.gameObject.SetActive(false);
         }
 
+        if (backstabFailureMessage != null)
+        {
+            backstabFailureMessage.gameObject.SetActive(false);
+        }
+
         playerinteraction player = FindAnyObjectByType<playerinteraction>();
         if (player == null)
         {
@@ -57,19 +63,6 @@ public class backstab : MonoBehaviour, IInteractable
         {
             playerTransform = player.transform;
         }
-    }
-
-    private Image FindIndicator(string indicatorName)
-    {
-        Transform indicatorTransform = backstabCanvas.transform.Find(indicatorName);
-        Image indicator = indicatorTransform != null ? indicatorTransform.GetComponent<Image>() : null;
-
-        if (indicator == null)
-        {
-            Debug.LogError($"The canvas must have an Image child named '{indicatorName}'.", this);
-        }
-
-        return indicator;
     }
 
     private void Update()
@@ -123,6 +116,7 @@ public class backstab : MonoBehaviour, IInteractable
         if (!CanBackstab(interactor.transform.position))
         {
             Debug.Log("Get behind the NPC and within range to backstab it.", this);
+            ShowBackstabFailureMessage();
             return;
         }
 
@@ -140,6 +134,34 @@ public class backstab : MonoBehaviour, IInteractable
 
         StartCoroutine(FallOverAndRemoveNpc());
         DisableAttachedScripts();
+    }
+
+    private void ShowBackstabFailureMessage()
+    {
+        if (backstabFailureMessage == null)
+        {
+            Debug.LogError("Assign a TextMeshPro component for the backstab failure message.", this);
+            return;
+        }
+
+        backstabFailureMessage.gameObject.SetActive(true);
+        if (backstabFailureMessageCoroutine != null)
+        {
+            StopCoroutine(backstabFailureMessageCoroutine);
+        }
+
+        backstabFailureMessageCoroutine = StartCoroutine(HideBackstabFailureMessage());
+    }
+
+    private IEnumerator HideBackstabFailureMessage()
+    {
+        yield return new WaitForSeconds(BackstabFailureMessageDuration);
+        if (backstabFailureMessage != null)
+        {
+            backstabFailureMessage.gameObject.SetActive(false);
+        }
+
+        backstabFailureMessageCoroutine = null;
     }
 
     private void DisableAttachedScripts()
